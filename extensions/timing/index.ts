@@ -7,8 +7,8 @@
  *   结算后:   ⏱ 上次回复 45.2s (生成 12.4s · 思考≈8.1s · 工具 32.8s)  ·  累计活跃 6m12s (42轮)
  *
  * 逐回复标注行（每条最终回复下方，随会话持久化，不进 LLM 上下文）：
- *   ⏱ 耗时 45.2s · 🔧 3 次工具调用
- *   ⏱ 45.2s · 🔧 3 tool calls
+ *   ⏱ 耗时 45.2s · 3 次工具调用
+ *   ⏱ 45.2s · 3 tool calls
  *
  * 口径说明：
  *   - 上次回复总耗时 = 用户消息开始 → 最终回复结束（含中间所有生成与工具执行）
@@ -26,7 +26,7 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { truncateToWidth } from "@earendil-works/pi-tui";
+import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
 const MAX_RECENT = 20;
 
@@ -37,13 +37,13 @@ interface TurnDetail {
 }
 
 export default function (pi: ExtensionAPI) {
-	let enabled = true;
+	let enabled = false;
 	let showDetail = false;
 	let showLines = true; // 逐回复标注行（/timing lines 开关）
 
 	// ---- 多语言（auto 跟随用户消息语言；系统 locale 定初始；命令可强制）----
 	type LangMode = "auto" | "zh" | "en";
-	let langMode: LangMode = "auto";
+	let langMode: LangMode = "en";
 	let currentLang: "zh" | "en" = detectSystemLang();
 	const STRINGS = {
 		zh: {
@@ -176,15 +176,15 @@ export default function (pi: ExtensionAPI) {
 		const zh = d.lang === "zh";
 		const calls = (n: number) => (zh ? `${n} 次工具调用` : `${n} tool call${n === 1 ? "" : "s"}`);
 		if (d.kind === "round" && typeof d.genMs === "number") {
-			return zh ? `⏱ 生成 ${fmt(d.genMs)} · 🔧 ${calls(d.tools)}` : `⏱ gen ${fmt(d.genMs)} · 🔧 ${calls(d.tools)}`;
+			return zh ? `生成 ${fmt(d.genMs)} · ${calls(d.tools)}` : `gen ${fmt(d.genMs)} · ${calls(d.tools)}`;
 		}
 		if (d.kind === "reply" && typeof d.replyMs === "number" && typeof d.genMs === "number") {
 			return zh
-				? `⏱ 回复 ${fmt(d.replyMs)} · 🔧 ${calls(d.tools)} (生成 ${fmt(d.genMs)})`
-				: `⏱ reply ${fmt(d.replyMs)} · 🔧 ${calls(d.tools)} (gen ${fmt(d.genMs)})`;
+				? `回复 ${fmt(d.replyMs)} · ${calls(d.tools)} (生成 ${fmt(d.genMs)})`
+				: `reply ${fmt(d.replyMs)} · ${calls(d.tools)} (gen ${fmt(d.genMs)})`;
 		}
 		const ms = d.ms ?? 0; // 旧版形态
-		return zh ? `⏱ 耗时 ${fmt(ms)} · 🔧 ${calls(d.tools)}` : `⏱ ${fmt(ms)} · 🔧 ${calls(d.tools)}`;
+		return zh ? `耗时 ${fmt(ms)} · ${calls(d.tools)}` : `${fmt(ms)} · ${calls(d.tools)}`;
 	}
 
 	function stopToolTicker() {
@@ -359,7 +359,7 @@ export default function (pi: ExtensionAPI) {
 					return Math.max(0, last - spanFirstTs);
 				};
 				const head = () =>
-					D(`⏱ ${t("span")} `) + A(fmt(spanMs())) + D("  ·  " + t("active") + " ") + S(fmt(cumulativeMs)) + D(` (${turns}${turnSuffix(turns)})`);
+					D(`${t("span")} `) + A(fmt(spanMs())) + D("  ·  " + t("active") + " ") + S(fmt(cumulativeMs)) + D(` (${turns}${turnSuffix(turns)})`);
 
 				// 忙碌状态：行首 + 本轮已耗时（实时跳秒）
 				const busyHead = () => {
@@ -431,9 +431,13 @@ export default function (pi: ExtensionAPI) {
 	const lineRenderer = (entry: { data?: Parameters<typeof buildLine>[0] }, _options: unknown, theme: { fg: (k: string, s: string) => string }) => {
 		const d = entry.data ?? { tools: 0, lang: "en" as const };
 		const dim = (s: string) => theme.fg("dim", s);
-		// 先截断再加颜色，避免 ANSI 序列干扰宽度计算
+		// 先截断再加颜色，避免 ANSI 序列干扰宽度计算；右侧留白后右对齐
 		return {
-			render: (width: number) => [dim(truncateToWidth(buildLine(d), width))],
+			render: (width: number) => {
+				const line = truncateToWidth(buildLine(d), width);
+				const pad = Math.max(0, width - visibleWidth(line));
+				return [dim(" ".repeat(pad) + line)];
+			},
 			invalidate: () => {},
 		};
 	};
