@@ -84,6 +84,7 @@ export default function (pi: ExtensionAPI) {
 	let thinkingEndMs = 0; // thinking_end 事件时间（思考结束锚点，优先于文本锚点）
 	let firstTextMs = 0;
 	let lastGenMs = 0;
+	let lastOutputTokens: number | undefined;
 	let lastThinkingMs: number | undefined;
 	let lastToolMs = 0;
 
@@ -168,6 +169,7 @@ export default function (pi: ExtensionAPI) {
 	function buildLine(d: {
 		kind?: "round" | "reply";
 		genMs?: number;
+		outputTokens?: number;
 		replyMs?: number;
 		ms?: number;
 		tools: number;
@@ -175,13 +177,21 @@ export default function (pi: ExtensionAPI) {
 	}): string {
 		const zh = d.lang === "zh";
 		const calls = (n: number) => (zh ? `${n} 次工具调用` : `${n} tool call${n === 1 ? "" : "s"}`);
+		let speed = "";
+		if (typeof d.outputTokens === "number" && Number.isFinite(d.outputTokens) && d.outputTokens > 0 &&
+			typeof d.genMs === "number" && Number.isFinite(d.genMs) && d.genMs > 0) {
+			const rate = d.outputTokens / (d.genMs / 1000);
+			if (Number.isFinite(rate) && rate > 0) {
+				speed = ` · ${rate >= 100 ? Math.round(rate).toString() : rate.toFixed(1)} tok/s`;
+			}
+		}
 		if (d.kind === "round" && typeof d.genMs === "number") {
-			return zh ? `生成 ${fmt(d.genMs)} · ${calls(d.tools)}` : `gen ${fmt(d.genMs)} · ${calls(d.tools)}`;
+			return (zh ? `生成 ${fmt(d.genMs)} · ${calls(d.tools)}` : `gen ${fmt(d.genMs)} · ${calls(d.tools)}`) + speed;
 		}
 		if (d.kind === "reply" && typeof d.replyMs === "number" && typeof d.genMs === "number") {
-			return zh
+			return (zh
 				? `回复 ${fmt(d.replyMs)} · ${calls(d.tools)} (生成 ${fmt(d.genMs)})`
-				: `reply ${fmt(d.replyMs)} · ${calls(d.tools)} (gen ${fmt(d.genMs)})`;
+				: `reply ${fmt(d.replyMs)} · ${calls(d.tools)} (gen ${fmt(d.genMs)})`) + speed;
 		}
 		const ms = d.ms ?? 0; // 旧版形态
 		return zh ? `耗时 ${fmt(ms)} · ${calls(d.tools)}` : `${fmt(ms)} · ${calls(d.tools)}`;
@@ -300,6 +310,7 @@ export default function (pi: ExtensionAPI) {
 		turnToolCalls = 0;
 		lineAppended = false;
 		genStartMs = 0;
+		lastOutputTokens = undefined;
 		sawThinking = false;
 		thinkingEndMs = 0;
 		firstTextMs = 0;
@@ -468,6 +479,7 @@ export default function (pi: ExtensionAPI) {
 
 	pi.on("message_start", async (event, ctx) => {
 		if (event.message.role === "user") {
+			lastOutputTokens = undefined;
 			const nowMs = Date.now();
 			if (spanFirstTs === 0) spanFirstTs = nowMs; // 首条消息：会话跨度起点
 			roundStartMs = nowMs;
@@ -483,6 +495,7 @@ export default function (pi: ExtensionAPI) {
 		}
 		if (event.message.role !== "assistant") return;
 		genStartMs = Date.now();
+		lastOutputTokens = undefined;
 		sawThinking = false;
 		thinkingEndMs = 0;
 		firstTextMs = 0;
@@ -504,7 +517,11 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.on("message_end", async (event, ctx) => {
-		if (event.message.role !== "assistant" || genStartMs === 0) return;
+		if (event.message.role !== "assistant") return;
+		lastOutputTokens = undefined;
+		if (genStartMs === 0) return;
+		const output = event.message.usage?.output;
+		if (typeof output === "number" && Number.isFinite(output) && output > 0) lastOutputTokens = output;
 		// 注意：message.timestamp 是消息创建（流开始）时间戳，不是完成时间；
 		// 进程内完成时间用 Date.now()（与会话文件里 timestamp 差值口径一致）
 		const endTs = Date.now();
@@ -547,7 +564,13 @@ export default function (pi: ExtensionAPI) {
 		if (stop === "error" || stop === "aborted") return; // 中断/出错不写行，避免重试产生双行
 		if (stop === "toolUse") {
 			// 中间轮：每条 AI 输出一行（生成耗时 + 本轮工具次数）
-			pi.appendEntry("timing-line", { kind: "round", genMs: lastGenMs, tools: roundToolCalls, lang: currentLang });
+			pi.appendEntry("timing-line", {
+				kind: "round",
+				genMs: lastGenMs,
+				...(lastOutputTokens !== undefined ? { outputTokens: lastOutputTokens } : {}),
+				tools: roundToolCalls,
+				lang: currentLang,
+			});
 			return;
 		}
 		// 最终回复：回复总耗时（用户消息 → 回复结束）+ 工具总次数 + 末轮生成耗时
@@ -557,6 +580,7 @@ export default function (pi: ExtensionAPI) {
 			kind: "reply",
 			replyMs: lastReplyMs,
 			genMs: lastGenMs,
+			...(lastOutputTokens !== undefined ? { outputTokens: lastOutputTokens } : {}),
 			tools: turnToolCalls,
 			lang: currentLang,
 		});
