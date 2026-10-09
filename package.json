@@ -15,6 +15,14 @@
     "pi-package"
   ],
   "license": "MIT",
+  "files": [
+    "extensions",
+    "README.md",
+    "README.zh-CN.md",
+    "LICENSE",
+    "docs/demo-en.gif",
+    "docs/demo.gif"
+  ],
   "pi": {
     "extensions": [
       "./extensions"
