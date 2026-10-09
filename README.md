@@ -10,6 +10,8 @@ Timing widget for [pi](https://pi.dev) — shows how long each turn actually too
 
 ## Yuchenhui fork release
 
+Long-term fork maintenance is on `main`; installations still pin an exact release SHA.
+
 This GitHub-only fork is `pi-timing@1.3.0-yuchenhui.1`, based on fork commit `01c2e6ebecee31135eb61fe23d3abb8d71fb5da8` and upstream [adamcjm/pi-timing](https://github.com/adamcjm/pi-timing) 1.3.0 (`0dc319f3eb272df00017e20b473bc9fdb27107cc`). The package remains MIT; upstream attribution and the original documentation below are preserved. Those docs describe upstream behavior, not necessarily this fork's defaults.
 
 - Versions use `<upstream>-yuchenhui.N`: increment `N` for corrections on the same upstream version; restart at `.1` for a new upstream version.

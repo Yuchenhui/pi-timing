@@ -10,6 +10,8 @@
 
 ## Yuchenhui 分叉发行
 
+长期维护分支统一为 `main`；安装仍固定到精确的发行 SHA，不使用浮动分支。
+
 此分叉仅通过 GitHub 发行，版本为 `pi-timing@1.3.0-yuchenhui.1`；基于分叉提交 `01c2e6ebecee31135eb61fe23d3abb8d71fb5da8` 及上游 [adamcjm/pi-timing](https://github.com/adamcjm/pi-timing) 1.3.0（`0dc319f3eb272df00017e20b473bc9fdb27107cc`）。保留 MIT 许可、上游归属及下方原始文档；下方描述的是上游行为，不一定是此分叉的默认行为。
 
 - 版本格式为 `<upstream>-yuchenhui.N`：同一上游版本的修正递增 `N`，升级上游后从 `.1` 开始。
