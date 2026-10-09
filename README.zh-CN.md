@@ -8,6 +8,20 @@
 
 [pi](https://pi.dev) 的计时组件 —— 显示每次回复实际花了多长时间，以及你的会话里有多少是真正干活、多少是在空等。
 
+## Yuchenhui 分叉发行
+
+此分叉仅通过 GitHub 发行，版本为 `pi-timing@1.3.0-yuchenhui.1`；基于分叉提交 `01c2e6ebecee31135eb61fe23d3abb8d71fb5da8` 及上游 [adamcjm/pi-timing](https://github.com/adamcjm/pi-timing) 1.3.0（`0dc319f3eb272df00017e20b473bc9fdb27107cc`）。保留 MIT 许可、上游归属及下方原始文档；下方描述的是上游行为，不一定是此分叉的默认行为。
+
+- 版本格式为 `<upstream>-yuchenhui.N`：同一上游版本的修正递增 `N`，升级上游后从 `.1` 开始。
+- `private: true` 明确禁止发布到 npm。发行负责人发布附注标签 `v1.3.0-yuchenhui.1`，创建包含审核后包归档及其 SHA-256 校验值的 GitHub Release，再负责 Windows 固定源码部署。
+- 仅安装审核后的精确发行提交（将占位符替换为发行负责人记录的完整 SHA，不使用移动分支）：
+
+  ```bash
+  pi install git:github.com/Yuchenhui/pi-timing@<reviewed-release-commit-sha>
+  ```
+
+- 回滚到发行前源码：`pi install git:github.com/Yuchenhui/pi-timing@01c2e6ebecee31135eb61fe23d3abb8d71fb5da8`。旧安装使用移动的无版本 Git 引用，不应重新安装该移动引用。
+
 ## 功能
 
 - **每次生成耗时** — 每次 LLM 流式的墙钟（思考 + 回复），含思考时间估算（`思考≈`）
@@ -18,7 +32,9 @@
 - **历史重算** — 重启时从会话文件恢复累计；`/tree` 分支包含跳转点之前的历史（祖先链）
 - **多语言** — widget 语言自动跟随你的消息语言（中/英），初始取系统 locale；可用 `/timing lang` 强制
 
-## 安装
+## 安装（上游 npm 包，非此分叉）
+
+以下命令安装的是上游 npm 发行，**不是** Yuchenhui 分叉：
 
 ```bash
 pi install npm:pi-timing
